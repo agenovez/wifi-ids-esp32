@@ -5,6 +5,8 @@ services:
     restart: unless-stopped
     volumes:
       - mongo_data:/data/db
+    networks:
+      - graylognet
 
   opensearch:
     image: opensearchproject/opensearch:2.15.0
@@ -24,6 +26,8 @@ services:
         hard: 65536
     volumes:
       - opensearch_data:/usr/share/opensearch/data
+    networks:
+      - graylognet
 
   graylog:
     image: graylog/graylog:7.0
@@ -37,13 +41,16 @@ services:
       GRAYLOG_ROOT_PASSWORD_SHA2: ${GRAYLOG_ROOT_PASSWORD_SHA2}
       GRAYLOG_HTTP_BIND_ADDRESS: 0.0.0.0:9000
       GRAYLOG_HTTP_EXTERNAL_URI: ${GRAYLOG_HTTP_EXTERNAL_URI}
-      GRAYLOG_ELASTICSEARCH_HOSTS: http://opensearch:9200
+      GRAYLOG_MONGODB_URI: mongodb://mongo:27017/graylog
+      GRAYLOG_OPENSEARCH_HOSTS: http://opensearch:9200
       TZ: ${TZ:-America/Guayaquil}
     ports:
       - "9000:9000"
       - "12201:12201/udp"
     volumes:
       - graylog_data:/usr/share/graylog/data
+    networks:
+      - graylognet
 
   mosquitto:
     image: eclipse-mosquitto:2
@@ -55,6 +62,8 @@ services:
       - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - mosquitto_data:/mosquitto/data
       - mosquitto_log:/mosquitto/log
+    networks:
+      - graylognet
 
 volumes:
   mongo_data:
@@ -62,3 +71,7 @@ volumes:
   graylog_data:
   mosquitto_data:
   mosquitto_log:
+
+networks:
+  graylognet:
+    driver: bridge
