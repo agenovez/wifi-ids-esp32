@@ -1,0 +1,25 @@
+@startuml
+title Cyber Kill Chain del ataque de desautenticación (Top-Down)
+
+top to bottom direction
+
+rectangle "1. Reconocimiento\n(escaneo de redes WiFi)" as R1
+rectangle "2. Preparación\n(adaptador / herramienta)" as R2
+rectangle "3. Identificación del AP\ny clientes" as R3
+rectangle "4. Inyección de tramas\nde desautenticación" as R4
+rectangle "5. Interrupción de conectividad" as R5
+rectangle "6. Reconexión forzada" as R6
+rectangle "7. Captura de handshake\ny posible explotación" as R7
+
+R1 --> R2
+R2 --> R3
+R3 --> R4
+R4 --> R5
+R5 --> R6
+R6 --> R7
+
+note right of R4
+Fase crítica detectada por el IDS ESP32
+basado en análisis de tramas 802.11
+end note
+@enduml

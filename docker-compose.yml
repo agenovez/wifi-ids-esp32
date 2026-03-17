@@ -1,0 +1,64 @@
+services:
+  mongo:
+    image: mongo:6.0
+    container_name: graylog-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+
+  opensearch:
+    image: opensearchproject/opensearch:2.15.0
+    container_name: graylog-opensearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      - bootstrap.memory_lock=true
+      - OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+
+  graylog:
+    image: graylog/graylog:7.0
+    container_name: graylog
+    restart: unless-stopped
+    depends_on:
+      - mongo
+      - opensearch
+    environment:
+      GRAYLOG_PASSWORD_SECRET: ${GRAYLOG_PASSWORD_SECRET}
+      GRAYLOG_ROOT_PASSWORD_SHA2: ${GRAYLOG_ROOT_PASSWORD_SHA2}
+      GRAYLOG_HTTP_BIND_ADDRESS: 0.0.0.0:9000
+      GRAYLOG_HTTP_EXTERNAL_URI: ${GRAYLOG_HTTP_EXTERNAL_URI}
+      GRAYLOG_ELASTICSEARCH_HOSTS: http://opensearch:9200
+      TZ: ${TZ:-America/Guayaquil}
+    ports:
+      - "9000:9000"
+      - "12201:12201/udp"
+    volumes:
+      - graylog_data:/usr/share/graylog/data
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+
+volumes:
+  mongo_data:
+  opensearch_data:
+  graylog_data:
+  mosquitto_data:
+  mosquitto_log:

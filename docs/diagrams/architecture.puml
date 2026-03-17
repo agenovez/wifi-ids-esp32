@@ -1,0 +1,33 @@
+@startuml
+title Arquitectura distribuida de sensores IDS WiFi
+
+top to bottom direction
+
+node "Sensor IDS 1\nESP32" as S1 {
+  component "Captura 802.11"
+  component "Detección local"
+}
+
+node "Sensor IDS 2\nESP32" as S2 {
+  component "Captura 802.11"
+  component "Detección local"
+}
+
+node "Sensor IDS 3\nESP32" as S3 {
+  component "Captura 802.11"
+  component "Detección local"
+}
+
+cloud "Broker MQTT\nMosquitto" as MQTT
+node "Servidor SIEM\nGraylog" as GL
+database "Base de eventos\nOpenSearch / MongoDB" as DB
+actor "Administrador\nSeguridad" as ADMIN
+
+S1 --> MQTT : Publica eventos JSON
+S2 --> MQTT : Publica eventos JSON
+S3 --> MQTT : Publica eventos JSON
+
+MQTT --> GL : Reenvío de eventos
+GL --> DB : Indexación y almacenamiento
+ADMIN --> GL : Consulta / dashboards / alertas
+@enduml

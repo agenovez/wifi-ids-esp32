@@ -1,0 +1,14 @@
+@startuml
+title Pipeline de procesamiento IDS
+
+top to bottom direction
+
+[Captura WiFi] 
+--> [Filtrado de tramas]
+--> [Detección (threshold)]
+--> [JSON Event]
+--> [MQTT Broker]
+--> [Graylog Input]
+--> [Indexación]
+--> [Dashboard]
+@enduml

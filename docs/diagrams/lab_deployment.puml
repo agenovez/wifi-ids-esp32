@@ -1,0 +1,24 @@
+@startuml
+title Entorno de pruebas IDS WiFi
+
+actor Atacante
+actor Cliente
+
+rectangle "Access Point" {
+  [WiFi AP]
+}
+
+rectangle "ESP32 IDS" {
+  [Sensor]
+}
+
+rectangle "Servidor Docker" {
+  [MQTT + Graylog]
+}
+
+Atacante --> [WiFi AP]
+Cliente --> [WiFi AP]
+
+[WiFi AP] --> [Sensor]
+[Sensor] --> [MQTT + Graylog]
+@enduml
