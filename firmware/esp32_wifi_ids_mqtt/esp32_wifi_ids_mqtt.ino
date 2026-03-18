@@ -20,7 +20,7 @@ Adafruit_SH1106G display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 // =============================
 const char* WIFI_SSID   = "LAB-ESP32-SEGURIDAD";
 const char* WIFI_PASS   = "password_lab";
-const char* MQTT_BROKER = "192.168.1.60";
+const char* MQTT_BROKER = "10.4.5.108";
 const uint16_t MQTT_PORT = 1883;
 const char* SENSOR_ID = "esp32-deauth-01";
 const char* MQTT_TOPIC = "wifi/deauth/esp32-deauth-01";
@@ -71,6 +71,9 @@ String macToString(const uint8_t* mac) {
   return String(buf);
 }
 
+// =============================
+// Funciones de Salida (OLED y Serial)
+// =============================
 void clearAndHeader(const char* title, bool isAlert = false) {
   display.clearDisplay();
   display.setCursor(0, 0);
@@ -79,21 +82,33 @@ void clearAndHeader(const char* title, bool isAlert = false) {
     display.setTextSize(2);
     display.println("ALERTA");
     display.setTextSize(1);
+    Serial.println("\n*** ALERTA DEL SISTEMA ***");
   } else {
     display.setTextSize(1);
     display.println(title);
+    Serial.print("\n[INFO] ");
+    Serial.println(title);
   }
   display.println("----------------");
+  Serial.println("--------------------------------");
 }
 
 void updateDisplayStatus(const char* line1, const char* line2 = "", bool isAlert = false) {
   clearAndHeader(isAlert ? "ALERTA" : "Estado del sistema", isAlert);
   display.println(line1);
-  if (strlen(line2) > 0) display.println(line2);
+  Serial.print("-> ");
+  Serial.println(line1);
+  
+  if (strlen(line2) > 0) {
+    display.println(line2);
+    Serial.print("-> ");
+    Serial.println(line2);
+  }
   display.display();
 }
 
 void updateDisplayMonitoring(uint32_t count) {
+  // Actualización de Pantalla OLED
   display.clearDisplay();
   display.setCursor(0, 0);
   display.setTextSize(1);
@@ -105,11 +120,28 @@ void updateDisplayMonitoring(uint32_t count) {
   display.print("WiFi: "); display.println(WiFi.status() == WL_CONNECTED ? "OK" : "DOWN");
   display.print("MQTT: "); display.println(mqttClient.connected() ? "OK" : "DOWN");
   display.print("Deauths: "); display.println(count);
+  
   uint32_t elapsed = (millis() - windowStart) / 1000UL;
   display.print("Ventana: "); display.print(elapsed); display.print("/"); display.print(WINDOW_SECONDS); display.println(" s");
   display.display();
+
+  // Espejado al Monitor Serial (Formato Tabular)
+  Serial.print("[MONITOR] WiFi: ");
+  Serial.print(WiFi.status() == WL_CONNECTED ? "OK" : "DOWN");
+  Serial.print(" | MQTT: ");
+  Serial.print(mqttClient.connected() ? "OK" : "DOWN");
+  Serial.print(" | Deauths: ");
+  Serial.print(count);
+  Serial.print(" | Ventana: ");
+  Serial.print(elapsed);
+  Serial.print("/");
+  Serial.print(WINDOW_SECONDS);
+  Serial.println(" s");
 }
 
+// =============================
+// Lógica de Red y MQTT
+// =============================
 void beginWiFiConnection() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
@@ -132,11 +164,14 @@ void ensureMQTTConnected() {
   uint32_t now = millis();
   if (now - lastMqttRetry < MQTT_RETRY_INTERVAL_MS) return;
   lastMqttRetry = now;
+  
   updateDisplayStatus("Conectando MQTT...", MQTT_BROKER);
   if (mqttClient.connect(SENSOR_ID)) {
     updateDisplayStatus("MQTT conectado", SENSOR_ID);
   } else {
     updateDisplayStatus("MQTT fallo", "Reintentando...");
+    Serial.print("[ERROR] Fallo de conexion MQTT. Codigo de estado: ");
+    Serial.println(mqttClient.state());
   }
 }
 
@@ -157,11 +192,24 @@ void publishDeauthEvent(uint32_t count, const String& src = "", const String& ds
 
   char payload[384];
   size_t len = serializeJson(doc, payload);
-  bool ok = mqttClient.publish(MQTT_TOPIC, payload, len);
+  
+  Serial.println("\n[ALERTA] Umbral de deautenticacion superado. Publicando evento MQTT:");
   Serial.println(payload);
+  
+  bool ok = mqttClient.publish(MQTT_TOPIC, payload, len);
+  
+  if (ok) {
+     Serial.println("[EXITO] Payload publicado correctamente en el broker.");
+  } else {
+     Serial.println("[ERROR] Falla al publicar el payload.");
+  }
+  
   updateDisplayStatus("Ataque detectado", ok ? "Evento enviado" : "Fallo MQTT", true);
 }
 
+// =============================
+// Sniffer
+// =============================
 void wifiSnifferCallback(void* buf, wifi_promiscuous_pkt_type_t type) {
   if (type != WIFI_PKT_MGMT) return;
 
@@ -187,22 +235,35 @@ void setupPromiscuousMode() {
   esp_wifi_set_promiscuous_filter(&filt);
   esp_wifi_set_promiscuous_rx_cb(&wifiSnifferCallback);
   esp_wifi_set_promiscuous(true);
+  Serial.println("[INFO] Modo promiscuo inicializado correctamente.");
 }
 
+// =============================
+// Bucle Principal
+// =============================
 void setup() {
   Serial.begin(115200);
-  delay(300);
+  // Espera breve para asegurar que el puerto serial se inicialice
+  delay(1000); 
+  Serial.println("\n\n====================================");
+  Serial.println("  INICIANDO SENSOR IDS ESP32");
+  Serial.println("====================================");
+
   Wire.begin();
 
   if (!display.begin(OLED_ADDR, true)) {
+    Serial.println("[ERROR] Falla al inicializar la pantalla OLED. Verifique conexiones I2C.");
     while (true) delay(1000);
   }
+  
+  Serial.println("[INFO] Pantalla OLED inicializada.");
   display.setRotation(0);
   display.setTextWrap(true);
   display.setTextColor(SH110X_WHITE);
   display.setTextSize(1);
 
   updateDisplayStatus("Inicializando...", SENSOR_ID);
+  
   mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
   mqttClient.setBufferSize(512);
 
